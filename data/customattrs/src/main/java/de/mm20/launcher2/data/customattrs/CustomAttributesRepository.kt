@@ -1,10 +1,10 @@
 package de.mm20.launcher2.data.customattrs
 
-import android.database.sqlite.SQLiteDatabase
+import de.mm20.launcher2.backup.Backupable
 import de.mm20.launcher2.crashreporter.CrashReporter
 import de.mm20.launcher2.database.AppDatabase
 import de.mm20.launcher2.database.entities.CustomAttributeEntity
-import de.mm20.launcher2.searchable.SearchableRepository
+import de.mm20.launcher2.searchable.SavableSearchableRepository
 import de.mm20.launcher2.ktx.jsonObjectOf
 import de.mm20.launcher2.search.SavableSearchable
 import kotlinx.collections.immutable.ImmutableList
@@ -19,7 +19,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import java.io.File
 
-interface CustomAttributesRepository {
+interface CustomAttributesRepository: Backupable {
 
     fun search(query: String): Flow<ImmutableList<SavableSearchable>>
 
@@ -33,9 +33,6 @@ interface CustomAttributesRepository {
     fun setTags(searchable: SavableSearchable, tags: List<String>)
     fun getTags(searchable: SavableSearchable): Flow<List<String>>
 
-    suspend fun export(toDir: File)
-    suspend fun import(fromDir: File)
-
     fun getAllTags(startsWith: String? = null): Flow<List<String>>
     fun getItemsForTag(tag: String): Flow<List<SavableSearchable>>
     fun setItemsForTag(tag: String, items: List<SavableSearchable>): Job
@@ -48,7 +45,7 @@ interface CustomAttributesRepository {
 
 internal class CustomAttributesRepositoryImpl(
     private val appDatabase: AppDatabase,
-    private val searchableRepository: SearchableRepository
+    private val searchableRepository: SavableSearchableRepository
 ) : CustomAttributesRepository {
     private val scope = CoroutineScope(Job() + Dispatchers.Default)
 
@@ -189,7 +186,7 @@ internal class CustomAttributesRepositoryImpl(
         }
     }
 
-    override suspend fun export(toDir: File) = withContext(Dispatchers.IO) {
+    override suspend fun backup(toDir: File) = withContext(Dispatchers.IO) {
         val dao = appDatabase.backupDao()
         var page = 0
         do {
@@ -213,7 +210,7 @@ internal class CustomAttributesRepositoryImpl(
         } while (customAttrs.size == 100)
     }
 
-    override suspend fun import(fromDir: File) = withContext(Dispatchers.IO) {
+    override suspend fun restore(fromDir: File) = withContext(Dispatchers.IO) {
         val dao = appDatabase.backupDao()
         dao.wipeCustomAttributes()
 
